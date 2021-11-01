@@ -1,4 +1,6 @@
 import socket
+import random
+
 
 PORT = 1337
 HOST = "127.0.0.1"
