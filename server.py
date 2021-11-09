@@ -13,19 +13,21 @@ nicknames = []
 
 print(f"Waiting on port: {PORT}")
 
-def addUser(data, addr):
-    seshID = random.randint(1000,9998)
-    s.sendto(seshID, (HOST, PORT))
-    clients.append((addr, seshID))
-    nicknames.append(data)
+def addUser(nickname, addr, port):
+    clients.append((addr, port))
+    nicknames.append(nickname)
 
-    print(f"NEW USER: {data}, {addr}")
+    print(f"NEW USER: {nickname}, ({addr}, {port})")
     print(clients)
 
 def broadcast(sender, message):
     chat = f"[cha,{sender},{message},]"
     for client in clients:
-        s.sendto(chat.encode('utf-8'), (client[0], PORT))
+        hostname = client[0]
+        sendPort = client[1]
+        print(hostname, sendPort)
+        s.sendto(chat.encode('utf-8'), (client[0], int(client[1])))
+        print(f"hostname: {hostname}, port: {sendPort}")
 
 
 
@@ -34,16 +36,17 @@ def parseChat(rawMsg, addr):
     splitMsg = msg.split(",")
     if msg[1:4] == "com":
         if msg[5:9] == "JOIN":
-            addUser(splitMsg[2], splitMsg[3])
+            addUser(splitMsg[2], splitMsg[3], splitMsg[4])
     else:
         print(f"CHAT RECIEVED: {msg}")
+        print(splitMsg[1], splitMsg[2])
         broadcast(splitMsg[1], splitMsg[2])
 
 
 
 
 
-#[com,JOIN,NICKNAME,HOSTNAME,]
+#[com,JOIN,NICKNAME,HOSTNAME,PORT,]
 #[cha,NICKNAME CHAT-CONTENTS,]
 
 while True:
