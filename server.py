@@ -20,6 +20,7 @@ def addUser(nickname, addr, port):
     clients.append((addr, port))
     nicknames.append(nickname)
     broadcast(f"usrj{nickname}")
+    broadcast(f"cha***{nickname} has joined the server***")
     print(f"NEW USER: {nickname}, ({addr}, {port})")
 
 def removeUser(nickname):
@@ -28,7 +29,7 @@ def removeUser(nickname):
     del nicknames[userNdx]
     del clients[userNdx]
     broadcast(f"usrr{nickname}")
-    broadcast(f"cha{nickname} has left the chatroom...")
+    broadcast(f"cha***{nickname} has left the chatroom***")
 
 #Send message to all clients currently connected to the server
 def broadcast(msg):

@@ -55,16 +55,20 @@ class chatGui:
         self.message_entry = ttk.Entry(self.mainframe, width = 7, textvariable=self.message)
         self.userList = ttk.Treeview(self.mainframe)
         self.userList.heading('#0', text = "Online Users")
+        self.chatBoxScrollBar = ttk.Scrollbar(self.mainframe, command=self.text.yview)
+        self.text['yscrollcommand'] = self.chatBoxScrollBar.set
 
-        #Put padding around GUI elements
+        #Configure padding around GUI elements
         for child in self.mainframe.winfo_children():
-            child.grid_configure(padx=5, pady=5)
+            if not (child == self.chatBoxScrollBar or child == self.text):
+                child.grid_configure(padx=5, pady=5)
 
         #Remove the GUI elements that are specific to the chat room screen
         self.text.grid_remove()
         self.sendButton.grid_remove()
         self.message_entry.grid_remove() 
         self.userList.grid_remove()
+        self.chatBoxScrollBar.grid_remove()
 
         #Tells tkinter to run the function "onClosing" when the client is closed
         root.protocol("WM_DELETE_WINDOW", self.onClosing)
@@ -85,8 +89,9 @@ class chatGui:
         self.joinButton.grid_remove()
         self.message_entry.grid(column = 0, row =1, sticky=(W,E))
         self.sendButton.grid(column=1, row = 1, sticky=(W,E))
-        self.text.grid(column = 0, row = 0)
-        self.userList.grid(column = 1, row = 0)
+        self.text.grid(column = 0, row = 0, sticky=(N,S,E,W))
+        self.userList.grid(column = 2, row = 0)
+        self.chatBoxScrollBar.grid(column = 1, row = 0, sticky=(N,W,S))
         root.bind('<Return>', lambda event : self.sendChat())
 
     def sendChat(self):
@@ -102,6 +107,7 @@ class chatGui:
             if(msg[0:3] == "cha"):
                 self.text.config(state=NORMAL)
                 self.text.insert(END, msg[3:]+"\n")
+                self.text.see("end")
                 self.text.config(state=DISABLED)
             else:
                 self.updateUserList(msg[3:])
