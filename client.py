@@ -199,6 +199,7 @@ class chatGui:
         s.sendto(f"lea{self.nickname}".encode('utf-8'), ('127.0.0.1', SERVER_PORT))
         #Send some data to ourselves to move past the blocking call and terminate the while loop in receive thread
         s.sendto("HALT".encode('utf-8'), ('127.0.0.1', port))
+        s.close()
 
 #Launches GUI
 root = tk.Tk()
