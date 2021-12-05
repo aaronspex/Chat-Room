@@ -8,16 +8,18 @@ import queue
 
 #Initialize UDP socket
 host = "127.0.0.1"
-port = random.randint(1024,65534) #choose a random port to communicate to the server over
+port = random.randint(1024,65534) #choose a random port to communicate with the server over
 SERVER_PORT = 1337
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind((host, port))
 
-#Sentinal value used for receiveThread/GUI communication
+#Sentinel value used by the GUI and Receive Threads to communicate
+#when the user wants to quit the program
 global done 
 done = False
+
 #Queue for chats
-chatQueue = queue.Queue()
+messageQueue = queue.Queue()
 
 #Receives chats and adds them to the queue for the GUI to proccess
 def receiveChat():
@@ -25,7 +27,7 @@ def receiveChat():
     while not done:
         data, addr = s.recvfrom(1024) #blocking call
         msg = data.decode('utf-8') 
-        chatQueue.put(msg)
+        messageQueue.put(msg)
 
 receiveThread = threading.Thread(target = receiveChat, args = ())
 receiveThread.start()
@@ -38,12 +40,16 @@ class chatGui:
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
         self.initGUI(self.mainframe)
+        root.title("Chatroom")
+        root.geometry('250x50+50+50')
 
-    #Initializes GUI Widgets and displays the join screen
+        self.nickname = None
+
+    #Initializes GUI :Widgets and displays the join screen
     def initGUI(self, frame):
         #Define GUI elements related to join screen
-        self.nickname = StringVar()
-        self.nickname_entry = ttk.Entry(self.mainframe, width = 7, textvariable=self.nickname)
+        self.nickname_var = StringVar()
+        self.nickname_entry = ttk.Entry(self.mainframe, width = 7, textvariable=self.nickname_var)
         self.nickname_entry.grid(column = 0, row = 0)
         self.joinButton = ttk.Button(self.mainframe, text = 'join', command = self.joinRoom)
         self.joinButton.grid(column = 1, row = 0)
@@ -73,18 +79,24 @@ class chatGui:
         #Tells tkinter to run the function "onClosing" when the client is closed
         root.protocol("WM_DELETE_WINDOW", self.onClosing)
 
-        #Tell tkinter to start running the updateChatbox method w/o causing a blocking call
-        root.after(0, self.updateChatbox)
+        #Tell tkinter to start running the processMessages method w/o causing a blocking call
+        root.after(0, self.processMessages)
 
         root.bind('<Return>', lambda event : self.joinRoom())
 
     def joinRoom(self):
         #If the user has not entered in anything for the 
         #nickname do not proceed, end the method
-        if not self.nickname.get():
+        if not self.nickname_var.get():
             return
-        name = self.nickname.get()
-        s.sendto(f"joi{name},{host},{port}".encode('utf-8'), (host,SERVER_PORT))
+
+        root.geometry('650x300+50+50')
+        s.sendto(f"joi{self.nickname_var.get()},{host},{port}".encode('utf-8'), (host,SERVER_PORT))
+
+        #while we are waiting for the server to send back the user's final nickname do nothing
+        #client will recieve message from server with the final nickname and setNickname method
+        #will update the username, allowing the client to get past this loop
+
         self.nickname_entry.grid_remove()
         self.joinButton.grid_remove()
         self.message_entry.grid(column = 0, row =1, sticky=(W,E))
@@ -95,31 +107,53 @@ class chatGui:
         root.bind('<Return>', lambda event : self.sendChat())
 
     def sendChat(self):
-        chat = f"cha{self.nickname.get()}: {self.message.get()}"
+        chat = f"cha{self.nickname}: {self.message.get()}"
         s.sendto(chat.encode('utf-8'), (host,SERVER_PORT))
         self.message_entry.delete(0, END)
 
-    #Checks the chatQueue and populates the chatbox with any new chats
-    def updateChatbox(self):
-        while not chatQueue.empty():
-            msg = chatQueue.get()
+    #Proccesses messages from the messageQueue and performs the appropriate
+    #action based on the message type
+    def processMessages(self):
+        #While there are messages waiting in the queue to be processed
+        #continue processing them
+        while not messageQueue.empty():
+            msg = messageQueue.get()
             #if the msg is a chat, display it appropriately
-            if(msg[0:3] == "cha"):
-                self.text.config(state=NORMAL)
-                self.text.insert(END, msg[3:]+"\n")
-                self.text.see("end")
-                self.text.config(state=DISABLED)
-            else:
+            if msg[0:3] == "cha":
+                self.displayChat(msg[3:])
+            #If the message is a userList action, pass it to the correct method
+            elif msg[0:3] == "usr":
                 self.updateUserList(msg[3:])
+            elif msg[0:3] == "nic":
+                self.setNickname(msg[3:])
 
         #Tell tkinter to run this function again in 500ms
-        root.after(500, self.updateChatbox)
+        root.after(500, self.processMessages)
 
+
+    def setNickname(self, nickname):
+        self.nickname = nickname
+        
+    #Displays the given chat to the chatbox
+    def displayChat(self, chat):
+        #Set the chatbox to NORMAL mode so the chat can be written to it
+        self.text.config(state=NORMAL)
+        #Write the chat to the chatbox
+        self.text.insert(END, chat+"\n")
+        #Scroll the chatbox down to the most recent down
+        self.text.see("end")
+        #Set the chatbox back to DISABLED mode so that it cant be written to by the user
+        self.text.config(state=DISABLED)
+
+
+    #Deletes the specified user from the userList
     def deleteUserFromUserList(self, user):
+        #Loop through the userList until we find the specified user, then delete it
         for record in self.userList.get_children():
             if self.userList.item(record)['text'] == user:
                 self.userList.delete(record)
 
+    #Takes in a userList message and performs the specified action
     def updateUserList(self, action):
         #if action is a list we want to add all of the users in the list to the user list
          if action[0] == "l":
@@ -129,9 +163,16 @@ class chatGui:
 
         #j = user joined
          elif action[0] == 'j':
-            self.userList.insert('', 'end', text=action[1:])
+            self.addUserToUserList(action[1:])
          else:
             self.deleteUserFromUserList(action[1:])
+
+    def addUserToUserList(self, username):
+        if(self.nickname == username):
+            self.userList.insert('', 'end', text = username+' (you)', tags=('u'))
+            self.userList.tag_configure('u', background = '#CFCFCF')
+        else:
+            self.userList.insert('', 'end', text=username)
 
     #Allows the GUI and seperate receive thread to exit gracefully  
     def onClosing(self):
@@ -140,11 +181,10 @@ class chatGui:
         done = True
         #Destory GUI window
         root.destroy()
-        s.sendto(f"lea{self.nickname.get()}".encode('utf-8'), ('127.0.0.1', SERVER_PORT))
+        #Let the server know we are leaving
+        s.sendto(f"lea{self.nickname}".encode('utf-8'), ('127.0.0.1', SERVER_PORT))
         #Send some data to ourselves to move past the blocking call and terminate "while True" loop in receive thread
         s.sendto("HALT".encode('utf-8'), ('127.0.0.1', port))
-
-
 
 #Launches GUI
 root = tk.Tk()
