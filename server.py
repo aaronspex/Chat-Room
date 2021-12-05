@@ -1,3 +1,5 @@
+#Server.py: A Server for a UDP socket based chatroom
+#Aaron Spexarth, 12/5/21
 import socket
 import random
 PORT = 1337
@@ -6,14 +8,16 @@ HOST = "127.0.0.1"
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind(("", PORT))
 
+#Holds the IP address and ports of all connected users
 clients = []
+#Holds nicknames of all currently connected users
 nicknames = []
 
 print(f"Waiting on port: {PORT}")
 
 #allows a new user to join the chatroom
 def addUser(nickname, addr, port):
-    #If a user already has that nickname, append a random number onto 
+    #If a user already has the requested nickname, append a random number onto 
     #the nickname and repeat recursively until the nickname is unique
     if nickname in nicknames:
         addUser(f"{nickname}{random.randint(0,9)}", addr, port)
@@ -40,7 +44,7 @@ def addUser(nickname, addr, port):
         unicast(f"cha***Welcome To The Chatroom {nickname}***", addr, int(port))
     
         #Log to server that a new user joined
-        print(f"NEW USER: {nickname}, ({addr}, {port})")
+        print(f"NEW USER: {nickname}, ('{addr}', '{port}')")
 
 #Removes a specified user from the chatroom
 def removeUser(nickname):
@@ -61,7 +65,7 @@ def removeUser(nickname):
     else:
         print(f"ERROR: USER '{nickname}' DOES NOT EXIST AND CAN'T BE REMOVED")
 
-#Send message to all clients currently connected to the server
+#Send a message to all clients currently connected to the server
 def broadcast(msg):
     for client in clients:
         hostname = client[0]
@@ -72,17 +76,22 @@ def broadcast(msg):
 def unicast(msg, addr, port):
     s.sendto(msg.encode('utf-8'), (addr, port))
     
+#Proccess new messages and perform the appropriate action
 def parseChat(rawMsg, addr):
     msg = rawMsg.decode('utf-8')
-    splitMsg = msg[3:].split(",")
+    #Join Message case
     if msg[0:3] == "joi":
+        splitMsg = msg[3:].split(",")
         addUser(splitMsg[0], splitMsg[1], splitMsg[2])
+    #Chat Message case
     elif msg[0:3] == "cha":
         print(f"CHAT RECIEVED: {msg[3:]}")
         broadcast(msg)
+    #Leave Message case
     elif msg[0:3] == "lea":
-        removeUser(splitMsg[0])
+        removeUser(msg[3:])
 
+#Continuously listen for new messages
 while True:
     data, addr = s.recvfrom(1024)
     parseChat(data, addr)

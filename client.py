@@ -1,3 +1,5 @@
+#Client.py: Client for a UDP socket based chatroom
+#Aaron Spexarth, 12/5/21
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
@@ -6,7 +8,7 @@ import random
 import socket
 import queue
 
-#Initialize UDP socket
+#Initialize and configure udp socket
 host = "127.0.0.1"
 port = random.randint(1024,65534) #choose a random port to communicate with the server over
 SERVER_PORT = 1337
@@ -18,19 +20,20 @@ s.bind((host, port))
 global done 
 done = False
 
-#Queue for chats
+#Queue for messages from the server, allows the GUI and receive thread to communicate
 messageQueue = queue.Queue()
 
-#Receives chats and adds them to the queue for the GUI to proccess
-def receiveChat():
+#Receives messages and adds them to the queue for the GUI to proccess
+def receiveMessages():
     global done
     while not done:
-        data, addr = s.recvfrom(1024) #blocking call
+        data, addr = s.recvfrom(1024)
         msg = data.decode('utf-8') 
         messageQueue.put(msg)
 
-receiveThread = threading.Thread(target = receiveChat, args = ())
+receiveThread = threading.Thread(target = receiveMessages, args = ())
 receiveThread.start()
+
 
 class chatGui:
     def __init__(self, root):
@@ -42,7 +45,7 @@ class chatGui:
         self.initGUI(self.mainframe)
         root.title("Chatroom")
         root.geometry('250x50+50+50')
-
+        #Holds the nickname of the user
         self.nickname = None
 
     #Initializes GUI :Widgets and displays the join screen
@@ -76,27 +79,29 @@ class chatGui:
         self.userList.grid_remove()
         self.chatBoxScrollBar.grid_remove()
 
-        #Tells tkinter to run the function "onClosing" when the client is closed
+        #Tells tkinter to run the method "onClosing" when the client is closed
         root.protocol("WM_DELETE_WINDOW", self.onClosing)
 
         #Tell tkinter to start running the processMessages method w/o causing a blocking call
         root.after(0, self.processMessages)
-
+        
+        #Bind the enter key to click the join room button
         root.bind('<Return>', lambda event : self.joinRoom())
 
+    #Goes through the process of connecting the user to the chatroom
     def joinRoom(self):
         #If the user has not entered in anything for the 
         #nickname do not proceed, end the method
         if not self.nickname_var.get():
             return
 
+        #Resize screen
         root.geometry('650x300+50+50')
+
+        #Let server know we would like to join
         s.sendto(f"joi{self.nickname_var.get()},{host},{port}".encode('utf-8'), (host,SERVER_PORT))
 
-        #while we are waiting for the server to send back the user's final nickname do nothing
-        #client will recieve message from server with the final nickname and setNickname method
-        #will update the username, allowing the client to get past this loop
-
+        #Reconfig GUI to show chatroom screen
         self.nickname_entry.grid_remove()
         self.joinButton.grid_remove()
         self.message_entry.grid(column = 0, row =1, sticky=(W,E))
@@ -104,8 +109,11 @@ class chatGui:
         self.text.grid(column = 0, row = 0, sticky=(N,S,E,W))
         self.userList.grid(column = 2, row = 0)
         self.chatBoxScrollBar.grid(column = 1, row = 0, sticky=(N,W,S))
+
+        #Rebind the enter key to the send button
         root.bind('<Return>', lambda event : self.sendChat())
 
+    #Sends a chat to the server
     def sendChat(self):
         chat = f"cha{self.nickname}: {self.message.get()}"
         s.sendto(chat.encode('utf-8'), (host,SERVER_PORT))
@@ -118,19 +126,23 @@ class chatGui:
         #continue processing them
         while not messageQueue.empty():
             msg = messageQueue.get()
+
             #if the msg is a chat, display it appropriately
             if msg[0:3] == "cha":
                 self.displayChat(msg[3:])
+
             #If the message is a userList action, pass it to the correct method
             elif msg[0:3] == "usr":
                 self.updateUserList(msg[3:])
+
+            #If the message contains the user's finalized nickname, pass it to the correct method
             elif msg[0:3] == "nic":
                 self.setNickname(msg[3:])
 
         #Tell tkinter to run this function again in 500ms
         root.after(500, self.processMessages)
 
-
+    #Sets the user's nickname
     def setNickname(self, nickname):
         self.nickname = nickname
         
@@ -167,7 +179,9 @@ class chatGui:
          else:
             self.deleteUserFromUserList(action[1:])
 
+    #Adds a user to the userList widget
     def addUserToUserList(self, username):
+        #If the user we are trying to add is ourselves make that entry look special
         if(self.nickname == username):
             self.userList.insert('', 'end', text = username+' (you)', tags=('u'))
             self.userList.tag_configure('u', background = '#CFCFCF')
@@ -183,7 +197,7 @@ class chatGui:
         root.destroy()
         #Let the server know we are leaving
         s.sendto(f"lea{self.nickname}".encode('utf-8'), ('127.0.0.1', SERVER_PORT))
-        #Send some data to ourselves to move past the blocking call and terminate "while True" loop in receive thread
+        #Send some data to ourselves to move past the blocking call and terminate the while loop in receive thread
         s.sendto("HALT".encode('utf-8'), ('127.0.0.1', port))
 
 #Launches GUI
