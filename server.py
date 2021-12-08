@@ -38,10 +38,10 @@ def addUser(nickname, addr, port):
 
         #Notify the other clients that a new user has joined
         broadcast(f"usrj{nickname}")
-        broadcast(f"cha***{nickname} has joined the server***")
+        broadcast(f"cha*****{nickname} has joined the server*****")
 
         #Send the user that joined a welcome message
-        unicast(f"cha***Welcome To The Chatroom {nickname}***", addr, int(port))
+        unicast(f"cha*****Welcome To The Chatroom {nickname}*****", addr, int(port))
     
         #Log to server that a new user joined
         print(f"NEW USER: {nickname}, ('{addr}', '{port}')")
@@ -60,7 +60,7 @@ def removeUser(nickname):
         
         #broadcast to all clients that the specified user has left
         broadcast(f"usrr{nickname}")
-        broadcast(f"cha***{nickname} has left the chatroom***")
+        broadcast(f"cha*****{nickname} has left the chatroom*****")
 
     else:
         print(f"ERROR: USER '{nickname}' DOES NOT EXIST AND CAN'T BE REMOVED")
@@ -72,9 +72,19 @@ def broadcast(msg):
         sendPort = client[1]
         s.sendto(msg.encode('utf-8'), (client[0], int(client[1])))
 
-#Send message to a specific client
+#Send message to a specific client given port and address
 def unicast(msg, addr, port):
     s.sendto(msg.encode('utf-8'), (addr, port))
+
+#send message to a given user
+def unicastToUser(msg, recipient):
+    if recipient in nicknames:
+        userNdx = nicknames.index(recipient)
+        recipientAddr = clients[userNdx][0]
+        recipientPort = clients[userNdx][1]
+        unicast(msg, recipientAddr, int(recipientPort))
+    else:
+        print(f"COULD NOT SEND MESSAGE: USER {recipient} DOES NOT EXIST")
     
 #Proccess new messages and perform the appropriate action
 def parseChat(rawMsg, addr):
@@ -90,6 +100,15 @@ def parseChat(rawMsg, addr):
     #Leave Message case
     elif msg[0:3] == "lea":
         removeUser(msg[3:])
+    #Private Message case
+    elif msg[0:3] == "pvm":
+        splitMsg = msg[3:].split(",")
+        receiver = splitMsg[0]
+        sender = splitMsg[2]
+        msgContents = splitMsg[1]
+        formattedPM = f"cha({sender}->you) = {msgContents}"
+        unicastToUser(formattedPM, receiver)
+        print(f"PM SENT BY {sender} TO {receiver}: {msgContents}")
 
 #Continuously listen for new messages
 while True:

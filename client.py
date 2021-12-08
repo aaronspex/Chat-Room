@@ -60,7 +60,7 @@ class chatGui:
         #Define GUI elements related to chat room screen
         self.text = Text(self.mainframe, width=40, height=10, state=DISABLED)
         self.message = StringVar()
-        self.sendButton = ttk.Button(self.mainframe, text = "send", command = self.sendChat)
+        self.sendButton = ttk.Button(self.mainframe, text = "send", command = self.proccessInput)
         self.message_entry = ttk.Entry(self.mainframe, width = 7, textvariable=self.message)
         self.userList = ttk.Treeview(self.mainframe)
         self.userList.heading('#0', text = "Online Users")
@@ -111,7 +111,67 @@ class chatGui:
         self.chatBoxScrollBar.grid(column = 1, row = 0, sticky=(N,W,S))
 
         #Rebind the enter key to the send button
-        root.bind('<Return>', lambda event : self.sendChat())
+        root.bind('<Return>', lambda event : self.proccessInput())
+
+
+
+
+    def proccessInput(self):
+        messageContents = self.message.get()
+        #Make sure the user actually typed something in the chatbox
+        if len(messageContents) >= 1:
+            if messageContents == "/q":
+                self.onClosing()
+
+            elif messageContents == "/h":
+                messageQueue.put("cha*****************Help*******************\n'/pm user' to private message a user\n'/c' to clear the chatbox\n'/q' to quit")
+                self.message_entry.delete(0, END)
+
+            elif messageContents == "/c":
+                self.text.config(state=NORMAL)
+                #Clear the chatbox
+                self.text.delete("1.0", END)
+                #Scroll the chatbox down to the most recent down
+                self.text.see("end")
+                #Set the chatbox back to DISABLED mode so that it cant be written to by the user
+                self.text.config(state=DISABLED)
+                self.message_entry.delete(0, END)
+
+            elif messageContents[0:4] == "/pm " and len(messageContents) > 4:
+                self.sendPM(messageContents[4:])
+
+            elif messageContents[0] == "/":
+                messageQueue.put("cha****UNKNOWN COMMAND DO '\h' FOR HELP****")
+                self.message_entry.delete(0, END)
+            else:
+                self.sendChat()
+
+    #Sends a PM to a user
+    def sendPM(self, contents):
+        splitContents = contents.split(" ", 1)
+        if len(splitContents) == 2:
+            receiver = splitContents[0]
+            message = splitContents[1]
+            sender = self.nickname
+       
+            if self.isUserOnline(receiver) and receiver != self.nickname:
+                pm = f"pvm{receiver},{message},{sender}"
+                s.sendto(pm.encode('utf-8'), (host,SERVER_PORT))
+
+            elif receiver == self.nickname:
+                messageQueue.put("cha********YOU CANT PM YOURSELF :( *******")
+            else:
+                messageQueue.put("cha***CANT SEND(RECIPENT DOES NOT EXIST)***")
+        else:
+            messageQueue.put("cha**********USAGE: /PM USER MSG**********")
+        self.message_entry.delete(0, END)
+
+    #Returns true if the specified user is online
+    def isUserOnline(self, user):
+        for record in self.userList.get_children():
+            if self.userList.item(record)['text'] == user:
+                return True
+        return False
 
     #Sends a chat to the server
     def sendChat(self):
@@ -152,7 +212,7 @@ class chatGui:
         self.text.config(state=NORMAL)
         #Write the chat to the chatbox
         self.text.insert(END, chat+"\n")
-        #Scroll the chatbox down to the most recent down
+        #Scroll the chatbox down to the most recent chat
         self.text.see("end")
         #Set the chatbox back to DISABLED mode so that it cant be written to by the user
         self.text.config(state=DISABLED)
