@@ -113,20 +113,20 @@ class chatGui:
         #Rebind the enter key to the send button
         root.bind('<Return>', lambda event : self.proccessInput())
 
-
-
-
+    #Determines if the user wants to send a chat to the server or run a command
     def proccessInput(self):
+
         messageContents = self.message.get()
-        #Make sure the user actually typed something in the chatbox
+        #Make sure the user actually typed something in the message box
         if len(messageContents) >= 1:
+            #Quit command case
             if messageContents == "/q":
                 self.onClosing()
-
+            #Help command case
             elif messageContents == "/h":
                 messageQueue.put("cha*****************Help*******************\n'/pm user' to private message a user\n'/c' to clear the chatbox\n'/q' to quit")
                 self.message_entry.delete(0, END)
-
+            #Clear command case
             elif messageContents == "/c":
                 self.text.config(state=NORMAL)
                 #Clear the chatbox
@@ -136,14 +136,15 @@ class chatGui:
                 #Set the chatbox back to DISABLED mode so that it cant be written to by the user
                 self.text.config(state=DISABLED)
                 self.message_entry.delete(0, END)
-
+            #PM command case
             elif messageContents[0:4] == "/pm " and len(messageContents) > 4:
                 self.sendPM(messageContents[4:])
-
+            #Unknown command case
             elif messageContents[0] == "/":
                 messageQueue.put("cha****UNKNOWN COMMAND DO '\h' FOR HELP****")
                 self.message_entry.delete(0, END)
             else:
+                #If we reach this point, we know the user input is not a command
                 self.sendChat()
 
     #Sends a PM to a user
