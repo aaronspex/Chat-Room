@@ -76,7 +76,7 @@ def broadcast(msg):
 def unicast(msg, addr, port):
     s.sendto(msg.encode('utf-8'), (addr, port))
 
-#send message to a given user
+#send message to a given user, an alternative way to unicast
 def unicastToUser(msg, recipient):
     if recipient in nicknames:
         userNdx = nicknames.index(recipient)
@@ -84,7 +84,7 @@ def unicastToUser(msg, recipient):
         recipientPort = clients[userNdx][1]
         unicast(msg, recipientAddr, int(recipientPort))
     else:
-        print(f"COULD NOT SEND MESSAGE: USER {recipient} DOES NOT EXIST")
+        print(f"COULD NOT UNICAST MESSAGE: USER {recipient} DOES NOT EXIST")
     
 #Proccess new messages and perform the appropriate action
 def parseChat(rawMsg, addr):
@@ -102,10 +102,10 @@ def parseChat(rawMsg, addr):
         removeUser(msg[3:])
     #Private Message case
     elif msg[0:3] == "pvm":
-        splitMsg = msg[3:].split(",")
+        splitMsg = msg[3:].split(",", 2)
         receiver = splitMsg[0]
-        sender = splitMsg[2]
-        msgContents = splitMsg[1]
+        sender = splitMsg[1]
+        msgContents = splitMsg[2]
         formattedPM = f"cha({sender}->you) = {msgContents}"
         unicastToUser(formattedPM, receiver)
         print(f"PM SENT BY {sender} TO {receiver}: {msgContents}")

@@ -148,14 +148,17 @@ class chatGui:
 
     #Sends a PM to a user
     def sendPM(self, contents):
+        #seperate the original command into receiver and message
         splitContents = contents.split(" ", 1)
+        #If user provided receiver and message continue, otherwise show error message
         if len(splitContents) == 2:
             receiver = splitContents[0]
             message = splitContents[1]
             sender = self.nickname
        
+            #If the user is online and the user is not trying to send a PM to themselves, send the PM
             if self.isUserOnline(receiver) and receiver != self.nickname:
-                pm = f"pvm{receiver},{message},{sender}"
+                pm = f"pvm{receiver},{sender},{message}"
                 s.sendto(pm.encode('utf-8'), (host,SERVER_PORT))
 
             elif receiver == self.nickname:
@@ -168,6 +171,7 @@ class chatGui:
 
     #Returns true if the specified user is online
     def isUserOnline(self, user):
+        #Search through the treeview userList widget and search for the user
         for record in self.userList.get_children():
             if self.userList.item(record)['text'] == user:
                 return True
@@ -232,11 +236,11 @@ class chatGui:
             usersToAdd = eval(action[1:])
             for user in usersToAdd:
                 self.userList.insert('', 'end', text = user)
-
-        #j = user joined
+         #j = user joined(add the user to the userList)
          elif action[0] == 'j':
             self.addUserToUserList(action[1:])
-         else:
+         #r = user left(remove the user from the userList)
+         elif action[0] == 'r' :
             self.deleteUserFromUserList(action[1:])
 
     #Adds a user to the userList widget
